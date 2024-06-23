@@ -9,8 +9,8 @@ services:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: poscloud
-      MINIO_ROOT_PASSWORD: elposcrece05
+      MINIO_ROOT_USER: user
+      MINIO_ROOT_PASSWORD: password
       MINIO_SERVER_URL: https://minio.example.com.ar:9000
     hostname: minio.example.com.ar
     volumes:
