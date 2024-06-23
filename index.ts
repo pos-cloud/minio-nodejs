@@ -1,10 +1,17 @@
 import express, { Request, Response } from 'express';
 import multer from 'multer';
-import * as Minio from 'minio'
+import axios from 'axios';
+import * as Minio from 'minio';
 import dotenv from 'dotenv';
+import fs from 'fs';
 
 dotenv.config();
 
+const uploadDirectory = './uploads';
+
+if (!fs.existsSync(uploadDirectory)) {
+  fs.mkdirSync(uploadDirectory);
+}
 
 const minioClient = new Minio.Client({
   endPoint: process.env.MINIO_ENDPOINT || '',
@@ -12,14 +19,16 @@ const minioClient = new Minio.Client({
   useSSL: true,
   accessKey: process.env.MINIO_ACCESS_KEY || '',
   secretKey: process.env.MINIO_SECRET_KEY || '',
-})
+});
 
 const app = express();
 const port = 310;
 
-const upload = multer({ dest: 'uploads/' }); // Configure destination for uploaded files (optional)
+app.use(express.json());
 
-async function uploadImage(req: Request, res: Response): Promise<void> {
+const upload = multer({ dest: uploadDirectory });
+
+async function uploadObject(req: Request, res: Response): Promise<void> {
   upload.single('image')(req, res, async (err) => {
     if (err) {
       console.error(err);
@@ -28,48 +37,56 @@ async function uploadImage(req: Request, res: Response): Promise<void> {
     }
 
     const imageFile = req.file;
-    const route = req.body.bucket;
+    const { path, bucket } = req.body;
 
     if (!imageFile) {
       res.status(400).send('No image uploaded.');
       return;
     }
 
-    const fileName = imageFile.originalname;
-    const filePath: string = './uploads/' + imageFile.filename
+    const filePath: string = './uploads/' + imageFile.filename;
 
     try {
+      await minioClient.fPutObject(bucket, path + imageFile.filename, filePath);
 
-        const result = await minioClient.fPutObject('poscloud', fileName, filePath);
+      fs.unlinkSync(filePath);
 
-        res.status(200).send(result);
-      
+      const fileUrl = `https://${process.env.MINIO_ENDPOINT}:9000/${bucket}/${path + imageFile.filename}`;
+
+      const pingResponse = await axios.head(fileUrl);
+      if (pingResponse.status === 200) {
+        res.status(200).send({
+          url: fileUrl,
+        });
+      } else {
+        res.status(500).send('Error accessing uploaded object.');
+      }
     } catch (error) {
       console.error(error);
-      res.status(500).send('Error uploading image.');
+      res.status(500).send('Error uploading object.');
     }
   });
 }
 
-async function deleteImage(req: Request, res: Response): Promise<void> {
-  const imageName = req.params.imageName;
+async function deleteObject(req: Request, res: Response): Promise<void> {
+  const { bucket, path } = req.body;
 
-  if (!imageName) {
-    res.status(400).send('Missing image name.');
+  if (!bucket || !path) {
+    res.status(400).send('Missing bucket or path.');
     return;
   }
 
   try {
-    await minioClient.removeObject('your-bucket-name', imageName);
-    res.status(200).send('Image deleted successfully.');
+    await minioClient.removeObject(bucket, path);
+    res.status(200).send('Object deleted successfully.');
   } catch (error) {
     console.error(error);
-    res.status(500).send('Error deleting image.');
+    res.status(500).send('Error deleting object.');
   }
 }
 
-app.post('/upload-image', uploadImage);
-app.delete('/delete-image/:imageName', deleteImage);
+app.post('/upload-object', uploadObject);
+app.post('/delete-object', deleteObject);
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
