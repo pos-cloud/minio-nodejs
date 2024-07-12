@@ -1,4 +1,4 @@
-name: Deploy Api v2 to Don Web
+name: Deploy Api Storage
 
 on:
   push:
@@ -24,7 +24,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t api-storage -f Dockerfile.prod .
+          docker build -t api-storage -f Dockerfile .
       
       - name: Run Docker container
         run: |
