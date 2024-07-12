@@ -1,0 +1,36 @@
+name: Deploy Api v2 to Don Web
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: prod2
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Remove existing container if exists
+        run: |
+          docker rm -f api-storage || true
+
+      - name: Tag previous container (if it exists)
+        run: |
+          if docker inspect api-storage >/dev/null 2>&1; then
+            docker tag api-storage api-storage:previous
+          fi
+
+      - name: Build Docker image
+        run: |
+          docker build -t api-storage -f Dockerfile.prod .
+      
+      - name: Run Docker container
+        run: |
+          docker run -v /home:/home --restart unless-stopped --net host --name api-storage -d -p 310:310 apiv2-poscloud
+
+      - name: Cleanup previous container if build successful
+        if: success()
+        run: |
+          docker image rm api-storage:previous || true
