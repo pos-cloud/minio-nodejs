@@ -28,7 +28,7 @@ jobs:
       
       - name: Run Docker container
         run: |
-          docker run -v /home:/home --restart unless-stopped --net host --name api-storage -d -p 310:310 apiv2-poscloud
+          docker run -v /home:/home --restart unless-stopped --net host --name api-storage -d -p 310:310 api-storage
 
       - name: Cleanup previous container if build successful
         if: success()
