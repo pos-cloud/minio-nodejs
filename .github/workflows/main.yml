@@ -23,12 +23,23 @@ jobs:
           fi
 
       - name: Build Docker image
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
         run: |
-          docker build -t api-storage -f Dockerfile .
-      
+          docker build --build-arg MINIO_ENDPOINT=${MINIO_ENDPOINT} \
+                       --build-arg MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY} \
+                       --build-arg MINIO_SECRET_KEY=${MINIO_SECRET_KEY} \
+                       -t api-storage -f Dockerfile .
+
       - name: Run Docker container
         run: |
-          docker run -v /home:/home --restart unless-stopped --net host --name api-storage -d -p 310:310 api-storage
+          docker run -v /home:/home --restart unless-stopped --net host --name api-storage -d -p 310:310 \
+          -e MINIO_ENDPOINT=${{ secrets.MINIO_ENDPOINT }} \
+          -e MINIO_ACCESS_KEY=${{ secrets.MINIO_ACCESS_KEY }} \
+          -e MINIO_SECRET_KEY=${{ secrets.MINIO_SECRET_KEY }} \
+          api-storage
 
       - name: Cleanup previous container if build successful
         if: success()
